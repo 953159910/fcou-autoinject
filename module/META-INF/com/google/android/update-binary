@@ -1,0 +1,32 @@
+#!/sbin/sh
+#################
+# 初始化
+#################
+umask 022
+
+ui_print() { echo "$1"; }
+
+require_new_magisk() {
+  ui_print "*******************************"
+  ui_print " 需要 Magisk v20.4+ / KernelSU  "
+  ui_print "*******************************"
+  exit 1
+}
+
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+if [ -f /data/adb/magisk/util_functions.sh ]; then
+  . /data/adb/magisk/util_functions.sh
+  [ "$MAGISK_VER_CODE" -lt 20400 ] && require_new_magisk
+  install_module
+elif [ -f /data/adb/ksu/lib/util_functions.sh ]; then
+  . /data/adb/ksu/lib/util_functions.sh
+  install_module
+else
+  require_new_magisk
+fi
+
+exit 0

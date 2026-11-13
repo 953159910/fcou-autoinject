@@ -1,0 +1,6 @@
+id=fcou_autoinject
+name=ForceCloseOreUI 自动注入（带 WebUI）
+version=v1.1
+versionCode=2
+author=YG
+description=带网页开关的 oreUI 关闭工具：ptrace 把 libForceCloseOreUI.so 注入 Minecraft 进程，不改包、不重签。WebUI 默认 http://127.0.0.1:8899。

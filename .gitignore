@@ -1,0 +1,6 @@
+build/
+*.zip
+*.o
+*.log
+.DS_Store
+webui.pid

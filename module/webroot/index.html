@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ForceCloseOreUI</title>
+<style>
+body{margin:0;padding:18px;background:#0e1014;color:#e8eaf0;font-family:system-ui,sans-serif}
+.card{max-width:520px;margin:0 auto;background:#171a21;border:1px solid #242833;border-radius:16px;padding:18px}
+h1{font-size:18px;margin:0 0 14px}
+.row{display:flex;justify-content:space-between;font-size:14px;padding:7px 0;color:#9aa3b2}
+.row b{color:#e8eaf0}
+.sw{display:flex;align-items:center;gap:12px;margin:16px 0;cursor:pointer}
+.sw input{display:none}
+.sl{width:52px;height:30px;border-radius:16px;background:#333a47;position:relative;flex:0 0 auto;transition:.18s}
+.sl:after{content:'';position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:50%;background:#8b94a6;transition:.18s}
+.sw input:checked+.sl{background:#2f6bff}
+.sw input:checked+.sl:after{left:26px;background:#fff}
+.sw em{font-style:normal;font-size:15px}
+pre{background:#0b0d11;border:1px solid #242833;border-radius:10px;padding:10px;font-size:12px;
+line-height:1.45;max-height:220px;overflow:auto;white-space:pre-wrap;color:#9fe0b0;margin:12px 0 0}
+small{color:#6d7686;font-size:12px;display:block;margin-top:10px;line-height:1.5}
+a{color:#6ea8ff}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>ForceCloseOreUI</h1>
+  <div class="row"><span>游戏进程</span><b id="pid">-</b></div>
+  <div class="row"><span>引擎 libminecraftpe</span><b id="eng">-</b></div>
+  <div class="row"><span>payload</span><b id="inj">-</b></div>
+  <label class="sw"><input type="checkbox" id="tg"><span class="sl"></span><em>注入并关闭 oreUI</em></label>
+  <pre id="log">先开游戏、进到主菜单，再点开关</pre>
+  <small id="hint"></small>
+</div>
+<script>
+const MODDIR = '/data/adb/modules/fcou_autoinject';
+const $ = id => document.getElementById(id);
+
+function hasKsu() {
+  return typeof ksu !== 'undefined' && ksu && typeof ksu.exec === 'function';
+}
+
+function exec(cmd) {
+  return new Promise((resolve) => {
+    if (!hasKsu()) { resolve({ code: -1, out: '', err: 'no ksu bridge' }); return; }
+    let done = false;
+    const cb = 'cb_' + Math.random().toString(36).slice(2);
+    window[cb] = (errno, stdout, stderr) => {
+      done = true;
+      try { delete window[cb]; } catch (e) { window[cb] = null; }
+      resolve({ code: errno, out: stdout || '', err: stderr || '' });
+    };
+    try {
+      ksu.exec(cmd, cb);
+      setTimeout(() => { if (!done) resolve({ code: -2, out: '', err: 'timeout' }); }, 120000);
+    } catch (e) { resolve({ code: -3, out: '', err: String(e) }); }
+  });
+}
+
+async function refresh() {
+  const r = await exec('sh ' + MODDIR + '/bin/fcou-inject --status 2>/dev/null');
+  try {
+    const j = JSON.parse(r.out.trim());
+    $('pid').textContent = j.pid > 0 ? ('PID ' + j.pid) : '未运行';
+    $('eng').textContent = j.engine ? '已加载' : '未加载';
+    $('inj').textContent = j.injected ? '已注入' : '未注入';
+    $('tg').checked = !!j.injected;
+  } catch (e) {
+    $('pid').textContent = '读不到状态';
+  }
+  if (!hasKsu()) {
+    $('hint').innerHTML = '这个页面需要 KernelSU 的 WebUI 环境。用浏览器的话直接打开 '
+      + '<a href="http://127.0.0.1:8899">http://127.0.0.1:8899</a>';
+  } else {
+    $('hint').textContent = '开关只能开不能关：注入是进程级的，想恢复就重启游戏。';
+  }
+}
+
+$('tg').addEventListener('change', async (e) => {
+  if (!e.target.checked) { e.target.checked = true; return; }
+  if (!hasKsu()) { window.location.href = 'http://127.0.0.1:8899'; return; }
+  $('log').textContent = '注入中，别切走 …';
+  const r = await exec('sh ' + MODDIR + '/bin/fcou-inject --once 2>&1');
+  $('log').textContent = (r.out || '') + (r.err ? ('\n' + r.err) : '')
+    + (r.code === 0 ? '\n[成功]' : '\n[失败 code=' + r.code + ']');
+  refresh();
+});
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>
